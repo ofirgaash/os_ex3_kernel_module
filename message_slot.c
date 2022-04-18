@@ -38,32 +38,38 @@ typedef struct msg_slot
 msg_slot all_slots[257];
 
 
-static channel_node new_channel_node(int id)
+static channel_node* new_channel_node(int id)
 {
   channel_node *node = (channel_node *)kmalloc(sizeof(channel_node), GFP_KERNEL);
+
+  if (node == NULL)
+    printk("message_slot: kmalloc did not work (ne_channel_node)\n");
   
   node->id = id;
   node->data_len = 0;
   node->next = NULL;
 
-  return *node;
+  return node;
 }
 
 
-static int get_curr_channel_node(struct file* file, channel_node *node)
+static int get_curr_channel_node(struct file* file, channel_node **node_dbl_ptr)
 {
   msg_slot *slot;
+  channel_node *node_ptr;
   
   slot = file->private_data;
   if (slot == NULL)
     return -1;
   
-  node = slot->head;
-  while (node != NULL  &&  node->id != slot->channel)
-    node = node->next;
+  node_ptr = slot->head;
+  while (node_ptr != NULL  &&  node_ptr->id != slot->channel)
+    node_ptr = node_ptr->next;
 
-  if (node == NULL)
+  if (node_ptr == NULL)
     return -1;
+
+  *(node_dbl_ptr) = node_ptr;
 
   return 0;
 }
@@ -100,9 +106,9 @@ static ssize_t device_read( struct file* file,
                             loff_t*      offset )
 {
   channel_node *tmp;
-  int i, code;
+  int code;
   
-  code = get_curr_channel_node(file, tmp);
+  code = get_curr_channel_node(file, &tmp);
   if (code != 0)
     return code;
 
@@ -115,13 +121,13 @@ static ssize_t device_read( struct file* file,
     return -ENOSPC;
   }
 
-  // change to copy_to_user @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-  for (i = 0; i < length; i++)
-    if (put_user(tmp->data[i], &(buffer[i])) != 0)
-      return -1;
+  if (copy_to_user(buffer, tmp->data, tmp->data_len) != 0)
+  {
+    printk("message_slot: copy_to_user failed. data_len=%d\n", tmp->data_len);
+    return -1;
+  }
   
-  
-  return 0;
+  return tmp->data_len;
 }
 
 //---------------------------------------------------------------
@@ -131,24 +137,31 @@ static ssize_t device_write( struct file*       file,
                              loff_t*            offset)
 {
   channel_node *tmp;
-  int i, code;
+  int code;
   
-  code = get_curr_channel_node(file, tmp);
+  code = get_curr_channel_node(file, &tmp);
   if (code != 0)
     return code;
 
+  printk("message_slot: 'write' found curr channel node\n");
+
   if (length == 0  ||  length > 128)
   {
+    printk("message_slot: 'write' length is bad!!\n");
     return -EMSGSIZE;
   }
 
-  // change to copy_from_user @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-  for (i = 0; i < length; i++)
-    if (get_user(tmp->data[i], &(buffer[i])) != 0)
-      return -1;
+  if (copy_from_user(tmp->data, buffer, length) != 0)
+  {
+    printk("message_slot: copy_from_user failed\n");
+    return -1;
+  }
+  tmp->data_len = length;
   
+  printk("message_slot: 'write' writing completed\n");
+
   // return the number of input characters used
-  return i;
+  return length;
 }
 
 //----------------------------------------------------------------
@@ -177,6 +190,7 @@ static long device_ioctl( struct   file* file,
     return -3;
   }
 
+
   // set the channel
   ((msg_slot *)(file->private_data))->channel = ioctl_param;
 
@@ -185,7 +199,8 @@ static long device_ioctl( struct   file* file,
 
   if (tmp == NULL)
   {
-    *(((msg_slot *)(file->private_data))->head) = new_channel_node(ioctl_param);
+    tmp = 
+    ((msg_slot *)(file->private_data))->head = new_channel_node(ioctl_param);
     return 0;
   }
 
@@ -196,7 +211,7 @@ static long device_ioctl( struct   file* file,
     tmp = tmp->next;
   }
 
-  *(tmp->next) = new_channel_node(ioctl_param);
+  tmp->next = new_channel_node(ioctl_param);
 
   return 0;
 }

@@ -31,11 +31,8 @@ int main(int argc, char *argv[])
 
     msg_len = read(fs, msg, 128);
 
-    res = write(1, "hello", 6);
-
 
     res = write(1, msg, msg_len);
-    res = write(1, "hello", 6);
 
     return 0;
 }

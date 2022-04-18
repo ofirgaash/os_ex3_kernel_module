@@ -1,0 +1,5 @@
+REMEMBER;
+    - remove all prints from all C files!
+      (if something is printed when it should not be, tester will fail!)
+    
+    - go over 'common mistakes' from drive!
