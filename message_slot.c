@@ -43,7 +43,10 @@ static channel_node* new_channel_node(int id)
   channel_node *node = (channel_node *)kmalloc(sizeof(channel_node), GFP_KERNEL);
 
   if (node == NULL)
+  {
     printk("message_slot: kmalloc did not work (ne_channel_node)\n");
+    return -1;
+  }
   
   node->id = id;
   node->data_len = 0;

@@ -23,12 +23,6 @@ int main(int argc, char *argv[])
     
     fs = open(slot_filepath, O_RDWR);
     res = ioctl(fs, MSG_SLOT_CHANNEL, channel_id);
-    if (res != 0)
-    {
-        printf("reader's ioctl got %d\n", res);
-        return res;
-    }
-
     msg_len = read(fs, msg, 128);
 
 

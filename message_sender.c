@@ -26,11 +26,6 @@ int main(int argc, char *argv[])
     printf("open done\n");
     
     res = ioctl(fs, MSG_SLOT_CHANNEL, channel_id);
-    if (res != 0)
-    {
-        printf("ioctl return with non-zero value: %d\n", res);
-        return res;
-    }
     printf("ioctl done\n");
     
     res = write(fs, msg, msg_len);
