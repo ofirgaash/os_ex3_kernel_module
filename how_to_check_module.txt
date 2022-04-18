@@ -1,0 +1,21 @@
+when changing sender/reader:
+    
+    gcc -O3 -Wall -std=c11 message_sender.c -o message_sender
+    gcc -O3 -Wall -std=c11 message_reader.c -o message_reader
+
+
+when changing module:
+    
+    0. snapshot
+    
+    1. recompile
+        make
+    
+    2. re-install
+        sudo rmmod message_slot
+        sudo insmod message_slot.ko
+
+    3. consider removing and re-creating device file:
+        sudo rm /dev/ofir_dev0
+        sudo mknod /dev/ofir_dev0 c 235 0
+        sudo chmod 666 /dev/ofir_dev0 
