@@ -4,6 +4,8 @@ gcc -O3 -Wall -std=c11 message_reader.c -o message_reader
 
 make
 
+sudo dmesg --clear
+
 sudo rmmod message_slot
 sudo insmod message_slot.ko
 

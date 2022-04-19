@@ -18,11 +18,12 @@ MODULE_LICENSE("GPL");
 #define DEVICE_RANGE_NAME "ofir_dev"
 
 
-//================== DATA STRUCTURES  ===========================
+//================== DATA STRUCTURES & ==========================
+//================== HELPER FUNCTIONS  ==========================
 
 typedef struct channel_node 
 {
-  int id;
+  unsigned long id;
   int data_len;
   char data[128];
   struct channel_node *next;
@@ -31,22 +32,22 @@ typedef struct channel_node
 
 typedef struct msg_slot 
 {
-  int channel;
+  unsigned long channel;
   channel_node *head;
 } msg_slot;
 
 msg_slot all_slots[257];
 
 
-static channel_node* new_channel_node(int id)
+static channel_node* new_channel_node(unsigned long id)
 {
   channel_node *node = (channel_node *)kmalloc(sizeof(channel_node), GFP_KERNEL);
 
-  if (node == NULL)
-  {
-    printk("message_slot: kmalloc did not work (ne_channel_node)\n");
-    return -1;
-  }
+  // if (node == NULL)
+  // {
+  //   printk("message_slot: kmalloc did not work (ne_channel_node)\n");
+  //   return -1;
+  // }
   
   node->id = id;
   node->data_len = 0;
@@ -63,7 +64,10 @@ static int get_curr_channel_node(struct file* file, channel_node **node_dbl_ptr)
   
   slot = file->private_data;
   if (slot == NULL)
+  {
+    printk("message_slot: (get_curr_channel) fs does not contain slot info\n");
     return -1;
+  }
   
   node_ptr = slot->head;
   while (node_ptr != NULL  &&  node_ptr->id != slot->channel)
@@ -86,6 +90,7 @@ static int device_open( struct inode* inode,
   if (iminor(inode) > 256)
     return -1;
 
+  // printk("message_slot (open): iminor is %d\n", iminor(inode));
   file->private_data = &(all_slots[iminor(inode)]);
 
   
@@ -144,7 +149,7 @@ static ssize_t device_write( struct file*       file,
   
   code = get_curr_channel_node(file, &tmp);
   if (code != 0)
-    return code;
+    return -EINVAL;
 
   printk("message_slot: 'write' found curr channel node\n");
 
@@ -157,7 +162,7 @@ static ssize_t device_write( struct file*       file,
   if (copy_from_user(tmp->data, buffer, length) != 0)
   {
     printk("message_slot: copy_from_user failed\n");
-    return -1;
+    return -EAGAIN;
   }
   tmp->data_len = length;
   
@@ -174,17 +179,10 @@ static long device_ioctl( struct   file* file,
 {
   channel_node *tmp;
 
-  if (ioctl_command_id != MSG_SLOT_CHANNEL)
+  if (ioctl_command_id != MSG_SLOT_CHANNEL  ||  ioctl_param < 1)
   {
-    printk("message_slot: ioctl WRONG cmd_id\n");
-    return -555;
-  }
-
-
-  if (ioctl_param < 1)
-  {
-    printk("message_slot: ioctl INVALID channel number\n");
-    return -2;
+    printk("message_slot (ioctl):  wrong cmd_id OR invalid channel id\n");
+    return -EINVAL;
   }
 
   if (file->private_data == NULL)
@@ -235,17 +233,46 @@ struct file_operations Fops =
 static int __init driver_init(void)
 {  
   int rc;
+
   printk("message_slot init\n");  
+
   rc = register_chrdev( MAJOR_NUM, DEVICE_RANGE_NAME, &Fops );
-  // printk("message_slot init ended\n");  
-  // printk("message_slot init: ioctl is %lu\n", MSG_SLOT_CHANNEL);  
+  
+  if (rc < 0)
+    printk(KERN_ERR "message_slot init failed\n");
+  
+
   return rc;
 }
 
 //---------------------------------------------------------------
 static void __exit driver_cleanup(void)
 {
+  channel_node *tmp1, *tmp2;
+  int i;
+  
   printk("message_slot cleanup\n");
+
+  // free all allocated memory
+  for (i = 0; i < 257; i++)
+  {
+    // if (all_slots[i].head != NULL)
+    // {
+    //   tmp1 = all_slots[i].head;
+    //   tmp2 = tmp1->next;
+    //   kfree(tmp1);
+
+    //   while (tmp2 != NULL)
+    //   {
+    //     tmp1 = tmp2;
+    //     tmp2 = tmp1->next;
+    //     kfree(tmp1);
+    //   }
+    // }
+  }
+
+  printk("message_slot cleanup - freed memory\n");
+
   unregister_chrdev(MAJOR_NUM, DEVICE_RANGE_NAME);
 }
 

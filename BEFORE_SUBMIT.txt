@@ -1,5 +1,21 @@
 REMEMBER;
+    - when calling system functions, check their return values!
+
     - remove all prints from all C files!
       (if something is printed when it should not be, tester will fail!)
     
     - go over 'common mistakes' from drive!
+
+
+open questions:
+  - are we allowed to leave 'printK' commands?
+
+testing:
+  - 'common mistakes' from drive!
+  - multilpe channels
+  - multiple device files
+  - overlap between channels of different device files
+
+  - read/write before channel is set
+  - read/write with invalid arguments
+  - channel set with invalid arguments
