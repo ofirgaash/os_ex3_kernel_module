@@ -17,19 +17,48 @@ int main(int argc, char *argv[])
     int fs;
     int res;
 
+    // validate num of arguments
+    if (argc != 4)
+    {
+        printf("Error: %s\n", strerror(EINVAL));
+        return 1;
+    }
+
     slot_filepath = argv[1];
     channel_id = atoi(argv[2]);
     msg = argv[3];
-    msg_len = strlen(msg) + 1;
+    msg_len = strlen(msg);
 
+    // open
     fs = open(slot_filepath, O_RDWR);
-    printf("open done\n");
+    if (fs == -1)
+    {
+        printf("Error: %s\n", strerror(errno));
+        return 1;
+    }
     
+    // set channel
     res = ioctl(fs, MSG_SLOT_CHANNEL, channel_id);
-    printf("ioctl done\n");
+    if (res != 0)
+    {
+        printf("Error: %s\n", strerror(errno));
+        return 1;
+    }
     
+    // write
     res = write(fs, msg, msg_len);
-    printf("write done\n");
+    if (res != msg_len)
+    {
+        printf("Error: %s\n", strerror(errno));
+        return 1;
+    }
+
+    // close device
+    if (close(fs) != 0)
+    {
+        printf("Error: %s\n", strerror(errno));
+        return 1;
+    }
     
     return 0;
 }
