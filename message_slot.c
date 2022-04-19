@@ -86,7 +86,7 @@ static int get_curr_channel_node(struct file* file, channel_node **node_dbl_ptr)
 static int device_open( struct inode* inode,
                         struct file*  file )
 {
-  printk("message_slot: open started\n");
+  // printk("message_slot: open started\n")
   if (iminor(inode) > 256)
     return -1;
 
@@ -94,7 +94,7 @@ static int device_open( struct inode* inode,
   file->private_data = &(all_slots[iminor(inode)]);
 
   
-  printk("message_slot: open ended successfully\n");
+  // printk("message_slot: open ended successfully\n");
   
   return 0;
 }
@@ -116,23 +116,36 @@ static ssize_t device_read( struct file* file,
   channel_node *tmp;
   int code;
   
+  // validate user parameters
+  if (length < 1  ||  length > 128  ||  buffer == NULL)
+  {
+    printk("message_slot: (read) invalid user parameters\n");
+    return -EINVAL;
+  }
+
+  // get current channel and validate its data
   code = get_curr_channel_node(file, &tmp);
   if (code != 0)
-    return code;
-
+  {
+    printk("message_slot: (read) problem accessing channel\n");
+    return -EINVAL;
+  }
   if (tmp->data_len == 0)
   {
+    printk("message_slot: (read) channel has no message\n");
     return -EWOULDBLOCK;
   }
   if (tmp->data_len > length)
   {
+    printk("message_slot: (read) buffer to small for msg\n");
     return -ENOSPC;
   }
 
+  // finally, read message
   if (copy_to_user(buffer, tmp->data, tmp->data_len) != 0)
   {
     printk("message_slot: copy_to_user failed. data_len=%d\n", tmp->data_len);
-    return -1;
+    return -EAGAIN;
   }
   
   return tmp->data_len;
@@ -146,19 +159,26 @@ static ssize_t device_write( struct file*       file,
 {
   channel_node *tmp;
   int code;
-  
+    
+  // validate user parameters
+  if (buffer == NULL)
+  {
+    printk("message_slot: (write) invalid user parameters\n");
+    return -EINVAL;
+  }
+  if (length == 0  ||  length > 128)
+  {
+    printk("message_slot: (write) length is bad!!\n");
+    return -EMSGSIZE;
+  }
+
+  // retrieve current channel
   code = get_curr_channel_node(file, &tmp);
   if (code != 0)
     return -EINVAL;
 
-  printk("message_slot: 'write' found curr channel node\n");
 
-  if (length == 0  ||  length > 128)
-  {
-    printk("message_slot: 'write' length is bad!!\n");
-    return -EMSGSIZE;
-  }
-
+  // write into the channel
   if (copy_from_user(tmp->data, buffer, length) != 0)
   {
     printk("message_slot: copy_from_user failed\n");
@@ -166,7 +186,6 @@ static ssize_t device_write( struct file*       file,
   }
   tmp->data_len = length;
   
-  printk("message_slot: 'write' writing completed\n");
 
   // return the number of input characters used
   return length;
@@ -256,19 +275,19 @@ static void __exit driver_cleanup(void)
   // free all allocated memory
   for (i = 0; i < 257; i++)
   {
-    // if (all_slots[i].head != NULL)
-    // {
-    //   tmp1 = all_slots[i].head;
-    //   tmp2 = tmp1->next;
-    //   kfree(tmp1);
+    if (all_slots[i].head != NULL)
+    {
+      tmp1 = all_slots[i].head;
+      tmp2 = tmp1->next;
+      kfree(tmp1);
 
-    //   while (tmp2 != NULL)
-    //   {
-    //     tmp1 = tmp2;
-    //     tmp2 = tmp1->next;
-    //     kfree(tmp1);
-    //   }
-    // }
+      while (tmp2 != NULL)
+      {
+        tmp1 = tmp2;
+        tmp2 = tmp1->next;
+        kfree(tmp1);
+      }
+    }
   }
 
   printk("message_slot cleanup - freed memory\n");

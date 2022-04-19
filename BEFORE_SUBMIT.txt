@@ -1,4 +1,6 @@
 REMEMBER;
+    - remove all warnings from sender/reader compilation
+    
     - when calling system functions, check their return values!
 
     - remove all prints from all C files!
